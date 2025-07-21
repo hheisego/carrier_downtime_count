@@ -1,12 +1,35 @@
 from services.logging_service import app_logger
+from config.configuration import config
+from services.connector_service import get_data
 
 def fetch_active_alerts():
     """
-    Fetch active alerts from the database.
+    Fetch active alerts from TE
     This function should be implemented to retrieve alerts based on your application's logic.
     """
-    # Placeholder for actual implementation
-    return ["alert1", "alert2", "alert3"]
+    active_alerts = []
+
+    # Puede haber pagination
+    app_logger.debug(f"{__name__} Fetching active alerts for the past {config.window_size} days...")
+
+    alerts_url = f"{config.te_base_url}alerts"
+    alerts = get_data(
+        url=alerts_url,
+        headers=config.te_headers_hal,
+        params={
+            "aid": config.aid,
+            "window": config.window_size
+        }
+    )
+
+    if alerts and 'alerts' in alerts:
+
+        while alerts.get("_links", {}).get("next"):
+
+            for alert in alerts['alerts']: #iteramos en todas las alertas para limpiarlas e irles dando formato
+                if alert.get('status') == 'active':
+                    active_alerts.append(alert)
+
 
 
 def get_carriers_metrics(active_alerts):

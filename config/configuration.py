@@ -15,7 +15,7 @@ class Config(BaseModel):
     org_id: int = Field(138579)
     aid: int = Field(150378)
 
-    poller_frequency: int = Field(..., default=60)
+    window_size: int = Field(..., default=60)
 
 
     @property
