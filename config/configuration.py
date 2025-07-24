@@ -1,21 +1,16 @@
-import os
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Cargar las variables de entorno desde el archivo .env
-load_dotenv()
+class Config(BaseSettings):
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 
+    te_base_url : str = "https://api.thousandeyes.com/v7/"
+    te_token : str
 
-class Config(BaseModel):
-    
-    te_base_url : str = Field("https://api.thousandeyes.com/v7/")
-    te_token : str = Field(...)
+    org_id: int = 138579
+    aid: int = 1088196
 
-    org_id: int = Field(138579)
-    aid: int = Field(150378)
-
-    window_size: int = Field(..., default=60)
+    window_size: int = 30
 
 
     @property
