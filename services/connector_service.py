@@ -58,7 +58,7 @@ async def a_request_with_retry(method, url, max_retries=2, retry_sleep=7, **kwar
         ).total_seconds()
 
         if rate_limit_remaining <= 25 and reset_time >= 10:
-            await a_log_request(url, response.status_code, retry_sleep)
+            #await a_log_request(url, response.status_code, retry_sleep)
             await asyncio.sleep(retry_sleep)
 
         if response.status_code == 429:
@@ -67,7 +67,7 @@ async def a_request_with_retry(method, url, max_retries=2, retry_sleep=7, **kwar
                 datetime.fromtimestamp(reset_timestamp) - datetime.now()
             ).total_seconds() + 1
             
-            await a_log_request(url, response.status_code, sleep_time)
+            #await a_log_request(url, response.status_code, sleep_time)
             await asyncio.sleep(max(0, sleep_time))
             
             continue
@@ -171,7 +171,7 @@ def request_with_retry(method, url, **kwargs):
     
     if rate_limit_remaining <= 11 and reset_time >= 17:
         
-        log_request(url, response.status_code, 5)  # Log this event
+        #log_request(url, response.status_code, 5)  # Log this event
         time.sleep(5)  # Sleep for 7 seconds to relieve the API
 
     if response.status_code == 429:
@@ -183,7 +183,7 @@ def request_with_retry(method, url, **kwargs):
         response = super_http.request(method, url, **kwargs)
         roundtrip = time.time() - retry_start
     
-    log_request(url, response.status_code, roundtrip)
+    #log_request(url, response.status_code, roundtrip)
     
     # Handle specific error codes
     status_code, error_response, has_error = handle_api_errors(response, url)
