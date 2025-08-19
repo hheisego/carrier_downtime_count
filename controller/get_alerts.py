@@ -65,6 +65,8 @@ def fetch_active_alerts():
 
                     target = test_info.get("server", "") or test_info.get("domain", "") or test_info.get("url", "")
 
+                    test_interval = test_info.get("interval", 1)  # En segundos
+
                 # Sacamos ruleName y ruleId
                 rule_url = alert["_links"].get("rule", {}).get("href")
                 if not rule_url:
@@ -75,16 +77,39 @@ def fetch_active_alerts():
                     app_logger.debug(f"{__name__} Rule info status: {status}, url: {rule_url}")
                     ruleName = rule_info.get("ruleName", "")
                     ruleId = rule_info.get("ruleId", "")
+                    roundsViolatingOutOf = rule_info.get("roundsViolatingOutOf", 0)
+                    roundsViolatingRequired = rule_info.get("roundsViolatingRequired", 0)
+
+
+
+                """"
+                effective_down_time = duration + tq
+                tq = (# intervals - 1) * intervalo del test
+                """
+                # calculo de tq dependiendo de roundsViolatingOut and required
+                if roundsViolatingOutOf == roundsViolatingRequired:
+                    #TQ=(N−1)×Δ
+                    tq = (roundsViolatingRequired - 1) * test_interval
+
+                # esta condicion siempre se cumple porque required no puede ser mas grande que outOf
+                elif roundsViolatingRequired <= roundsViolatingOutOf:
+                    #TQ=(M−1+N−1)/2 ​×Δ
+                    tq = ((roundsViolatingRequired - 1) + (roundsViolatingOutOf - 1)) / 2 * test_interval
+
+                else:
+                    tq = 0  # Si no se cumplen las condiciones, no hay TQ
+
+
 
                 if "duration" in alert and alert['state'] == 'CLEARED':
-                    duration = round(alert["duration"] / 1000,2)
+                    duration = round(alert["duration"] / 1000,2) + tq
                 else:
                     # Si no tiene dateEnd, lo consideramos activo hasta ahora
                     start = datetime.fromisoformat(alert["startDate"].replace('Z', '+00:00'))
                     if start.tzinfo is None:
                         start = start.replace(tzinfo=timezone.utc)
                     end = datetime.now(timezone.utc)
-                    duration = round((end - start).total_seconds(), 2)
+                    duration = round((end - start).total_seconds(), 2) + tq
 
 
                 for label in labels:
