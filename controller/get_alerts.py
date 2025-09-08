@@ -115,7 +115,7 @@ def fetch_active_alerts():
                 for label in labels:
 
                     if "Carriers" in labels:
-                        if label != "Carriers":
+                        if label != "Carriers" and "-" in label:
                             key = (label, testName)
                             if key not in active_count:
                                 active_count[key] = {}
