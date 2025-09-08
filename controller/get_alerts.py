@@ -113,13 +113,16 @@ def fetch_active_alerts():
 
 
                 for label in labels:
-                    key = (label, testName)
-                    if key not in active_count:
-                        active_count[key] = {}
-                    if target:  # Solo si target no está vacío
-                        if target not in active_count[key]:
-                            active_count[key][target] = 0
-                        active_count[key][target] += duration
+
+                    if "Carriers" in labels:
+                        if label != "Carriers":
+                            key = (label, testName)
+                            if key not in active_count:
+                                active_count[key] = {}
+                            if target:  # Solo si target no está vacío
+                                if target not in active_count[key]:
+                                    active_count[key][target] = 0
+                                active_count[key][target] += duration
 
             except KeyError as ke:
                 app_logger.error(f"{__name__} KeyError in alert {alert.get('id', 'no-id')}: {ke}")
@@ -151,13 +154,29 @@ def get_carriers_metrics(active_count):
 
     with open('carrier_count.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Carrier', 'Test Name', 'Destination', 'Downtime'])
+        writer.writerow(['Carrier', 'Region', 'Internet','Provider', 'Test Name', 'Destination', 'Downtime'])
 
         for alert_key, alert_data in active_count.items():
+            # Procesar alert_key[0] (ejemplo: "NA - DIA - Lumen")
+            carrier_parts = [part.strip() for part in alert_key[0].split('-')]  # Separar por '-' y quitar espacios
+            
             for target, duration in alert_data.items():
                 if target not in carrier_metrics:
                     carrier_metrics[target] = 0
                 carrier_metrics[target] += duration
-                writer.writerow([alert_key[0], alert_key[1], target, duration])
+
+                # Asegurarse de que siempre haya 3 partes, incluso si faltan algunos separadores
+                while len(carrier_parts) < 3:
+                    carrier_parts.append("")
+
+                writer.writerow([
+                    alert_key[0],
+                    carrier_parts[0],  # Region (NA)
+                    carrier_parts[1],  # Type (DIA)
+                    carrier_parts[2],  # Provider (Lumen)
+                    alert_key[1],      # Test Name
+                    target,            # Destination
+                    round(duration,2)           # Downtime
+                ])
 
 

@@ -8,7 +8,7 @@ class Config(BaseSettings):
     te_token : str
 
     org_id: int = 138579
-    aid: int = 1088196
+    aid: int = 150378
 
     window_size: int = 30
 
