@@ -67,6 +67,11 @@ def fetch_active_alerts():
 
                     test_interval = test_info.get("interval", 1)  # En segundos
 
+                # sacamos metricas de ese test para network y sacar: packetLoss, latency
+
+
+
+
                 # Sacamos ruleName y ruleId
                 rule_url = alert["_links"].get("rule", {}).get("href")
                 if not rule_url:
@@ -116,7 +121,7 @@ def fetch_active_alerts():
 
                     if "Carriers" in labels:
                         if label != "Carriers" and "-" in label:
-                            key = (label, testName)
+                            key = (label, testName,testId)
                             if key not in active_count:
                                 active_count[key] = {}
                             if target:  # Solo si target no está vacío
@@ -154,9 +159,12 @@ def get_carriers_metrics(active_count):
 
     with open('carrier_count.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Carrier', 'Region', 'Internet','Provider', 'Test Name', 'Destination', 'Downtime'])
+        writer.writerow(['Carrier', 'Region', 'Internet','Provider', 'Test Name', 'Destination', 'Downtime', 'Packet Loss', 'Latency'])  # Cabeceras del CSV
 
         for alert_key, alert_data in active_count.items():
+            
+            loss, latency = get_network_metrics(alert_key[2])  # alert_key[2] is testId
+            
             # Procesar alert_key[0] (ejemplo: "NA - DIA - Lumen")
             carrier_parts = [part.strip() for part in alert_key[0].split('-')]  # Separar por '-' y quitar espacios
             
@@ -176,7 +184,69 @@ def get_carriers_metrics(active_count):
                     carrier_parts[2],  # Provider (Lumen)
                     alert_key[1],      # Test Name
                     target,            # Destination
-                    round(duration,2)           # Downtime
+                    round(duration,2), # Downtime
+                    round(loss,2),     # Packet Loss
+                    round(latency,2)   # Latency
                 ])
 
 
+def get_network_metrics(testId):
+
+
+    """
+    For each test associated with active alerts, fetch the latest metrics to add packet loss and latency.
+    """
+
+    loss = latency = 0
+
+    # Puede haber pagination
+    app_logger.info(f"{__name__} Fetching network metrics for tests {config.window_size} days...")
+
+
+    # Para el primer request -- ya de ahi vemos si hay pagination
+    network_metrics_url = f"{config.te_base_url}test-results/{testId}/network"
+    params = {'aid': config.aid, 'window': f'{config.window_size}d'}
+    
+
+    while True:  # Loop para manejar paginación
+
+        try:
+            status, network_metrics = get_data(headers=config.te_headers_hal, endp_url=network_metrics_url, params=params)
+            app_logger.info(f"{__name__} Test results successfully fetched with status: {status}")
+        except Exception as e:
+            app_logger.error(f"{__name__} Exception fetching test results: {e}")
+            break
+
+        if status != 200:
+            message = f"API Error {status} for results in AG {config.aid}"
+            app_logger.error(message=message)
+            break
+
+        if "results" not in network_metrics:
+            message = f"No results found in response for AG {config.aid} - test {testId}"
+            app_logger.warning(message=message)
+            break
+
+        for metrics in network_metrics["results"]:
+            try:
+                app_logger.info(f"{__name__} Processing metrics for test: {testId}, AG: {config.aid}")
+                loss += metrics.get("loss", 0)
+                latency += metrics.get("avgLatency", 0)
+
+            except Exception as e:
+                app_logger.error(f"{__name__} Exception processing test metrics, details: {e}")
+        
+        # Verificar si hay más páginas
+        if "_links" in network_metrics and "next" in network_metrics["_links"]:
+            # Obtener URL de la siguiente página
+            network_metrics_url = network_metrics["_links"]["next"]["href"]
+            params = {"aid": config.aid}  # La URL ya tiene todos los parámetros
+            
+            message = f"[HCv7] Fetching next page of test metrics for AG {config.aid}"
+            app_logger.debug(message)
+        else:
+            # No hay más páginas, salir del loop
+            break
+
+
+    return loss, latency
