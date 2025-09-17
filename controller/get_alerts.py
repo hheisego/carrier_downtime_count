@@ -1,4 +1,5 @@
 import csv
+import re
 
 from services.logging_service import app_logger
 from services.connector_service import get_data
@@ -6,6 +7,30 @@ from services.connector_service import get_data
 from config.configuration import config
 
 from datetime import datetime, timezone
+
+
+def extract_router_name(test_name):
+    """
+    Extrae el nombre del router del testName usando regex.
+    Busca la parte que está justo antes de -DIA o -MPLS
+    Ejemplo: ASH - RIO NEGRO PLANT-A829-BRMAOP01RTR001-DIA-EXPEREO -> BRMAOP01RTR001
+    """
+    # Patrón regex que captura la palabra que está justo antes de -DIA o -MPLS
+    pattern = r'-([A-Z0-9]+)-(?:DIA|MPLS)'
+    
+    match = re.search(pattern, test_name, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    else:
+        # Si no encuentra el patrón, intenta un patrón más general
+        # Busca la última palabra antes de -DIA o -MPLS
+        fallback_pattern = r'([A-Z0-9]+)-(?:DIA|MPLS)'
+        fallback_match = re.search(fallback_pattern, test_name, re.IGNORECASE)
+        if fallback_match:
+            return fallback_match.group(1).strip()
+        else:
+            return ""  # Si no encuentra nada, devuelve vacío
+
 
 def fetch_active_alerts():
     """
@@ -159,7 +184,7 @@ def get_carriers_metrics(active_count):
 
     with open('carrier_count.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Carrier', 'Region', 'Internet','Provider', 'Test Name', 'Destination', 'Downtime', 'Packet Loss', 'Latency'])  # Cabeceras del CSV
+        writer.writerow(['Carrier', 'Region', 'Internet','Provider', 'Test Name', 'Destination', 'Router Name', 'Downtime', 'Packet Loss', 'Latency'])
 
         for alert_key, alert_data in active_count.items():
             
@@ -168,6 +193,10 @@ def get_carriers_metrics(active_count):
             # Procesar alert_key[0] (ejemplo: "NA - DIA - Lumen")
             carrier_parts = [part.strip() for part in alert_key[0].split('-')]  # Separar por '-' y quitar espacios
             
+            # Extraer router name del test name
+            router_name = extract_router_name(alert_key[1])  # alert_key[1] es testName
+
+
             for target, duration in alert_data.items():
                 if target not in carrier_metrics:
                     carrier_metrics[target] = 0
@@ -184,6 +213,7 @@ def get_carriers_metrics(active_count):
                     carrier_parts[2],  # Provider (Lumen)
                     alert_key[1],      # Test Name
                     target,            # Destination
+                    router_name,       # Router Name 
                     round(duration,2), # Downtime
                     round(loss,2),     # Packet Loss
                     round(latency,2)   # Latency
